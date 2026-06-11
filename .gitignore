@@ -52,7 +52,11 @@ logs/
 Thumbs.db
 desktop.ini
 
+# 向量数据库（本地生成，禁止上传）
+chroma_db/
+
 # 项目输出（临时文件）
 output/
 tmp/
 temp/
+audit_report*.json
