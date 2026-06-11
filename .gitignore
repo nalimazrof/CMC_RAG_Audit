@@ -1,0 +1,58 @@
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# 环境变量与配置
+.env
+.env.local
+.env.*.local
+
+# 本地测试数据（禁止上传）
+*.pdf
+*.db
+*.sqlite
+*.sqlite3
+
+# 构建产物
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# 测试覆盖率
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 日志
+*.log
+logs/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# 项目输出（临时文件）
+output/
+tmp/
+temp/
