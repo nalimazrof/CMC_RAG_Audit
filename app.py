@@ -299,6 +299,19 @@ def save_tmp_pdf(uploaded) -> str:
 
 
 # ─────────────────────────────────────────────────────────────
+# session_state 初始化（持久化入库状态，跨 Streamlit 刷新保持）
+# ─────────────────────────────────────────────────────────────
+if "proto_indexed_count" not in st.session_state:
+    st.session_state["proto_indexed_count"]  = 0   # Protocol 集合已入库条数
+if "report_indexed_count" not in st.session_state:
+    st.session_state["report_indexed_count"] = 0   # Report 集合已入库条数
+if "last_proto_name" not in st.session_state:
+    st.session_state["last_proto_name"]  = ""      # 上次入库的 Protocol 文件名
+if "last_report_name" not in st.session_state:
+    st.session_state["last_report_name"] = ""      # 上次入库的 Report 文件名
+
+
+# ─────────────────────────────────────────────────────────────
 # 侧边栏
 # ─────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -368,6 +381,22 @@ with st.sidebar:
     )
     st.markdown("---")
     st.caption("CMC RAG Audit System v2.0  ·  Powered by Ollama + ChromaDB")
+
+    # ── ChromaDB 持久化状态（跨刷新保持）─────────────────────
+    proto_cnt  = st.session_state.get("proto_indexed_count",  0)
+    report_cnt = st.session_state.get("report_indexed_count", 0)
+    if proto_cnt > 0 or report_cnt > 0:
+        st.markdown("---")
+        st.markdown("### 🗄️ ChromaDB 入库状态")
+        st.markdown(
+            f'<div style="background:#0d1a2e;border:1px solid #1e4080;border-radius:8px;'
+            f'padding:10px 14px;font-size:0.82rem;color:#a8c8f0;">'
+            f'📋 Protocol：<strong style="color:#5dade2;">{proto_cnt} 条</strong><br>'
+            f'📄 Report：<strong style="color:#58d68d;">{report_cnt} 条</strong><br>'
+            f'<span style="color:#6a7fa8;font-size:0.76rem;">持久化至 ./chroma_db</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -543,8 +572,42 @@ if run_btn:
 
     proto_retrieved  = retrieve_relevant_chunks(audit_query, proto_col)
     report_retrieved = retrieve_relevant_chunks(audit_query, report_col)
-
     prog.progress(68, text="检索完成，调用 Gemma4 比对审计…")
+
+    # ── 入库后验证：任一集合仍为空则终止，给出明确提示 ──────────
+    proto_count  = proto_col.count()
+    report_count = report_col.count()
+
+    # 更新 session_state（供调试与 UI 状态显示）
+    st.session_state["proto_indexed_count"]  = proto_count
+    st.session_state["report_indexed_count"] = report_count
+    st.session_state["last_proto_name"]      = proto_label
+    st.session_state["last_report_name"]     = report_label
+
+    if proto_count == 0 or report_count == 0:
+        prog.empty()
+        stat.empty()
+        empty_names = []
+        if proto_count == 0:
+            empty_names.append(f"Protocol（{proto_label}）")
+        if report_count == 0:
+            empty_names.append(f"Report（{report_label}）")
+        st.error(
+            f"❌ **ChromaDB 入库失败**：{' 和 '.join(empty_names)} 集合为空，"
+            f"文档未成功向量化入库。\n\n"
+            f"**可能原因**：\n"
+            f"- Ollama 服务未启动（请确认 `ollama serve` 正在运行）\n"
+            f"- `nomic-embed-text` 模型未拉取（运行 `ollama pull nomic-embed-text`）\n"
+            f"- PDF 文件内容无法解析（文本型 PDF，非扫描件）\n\n"
+            f"请修复后重新点击【开始自动审计】。"
+        )
+        st.stop()
+
+    # ── 检索结果为空时降级提示（不阻断，Gemma 可用文本说明信息不足）──
+    if not proto_retrieved:
+        st.warning(f"⚠️ Protocol 集合（{proto_count} 条）中未检索到与审计问题相关的段落，审计结论可能不完整。")
+    if not report_retrieved:
+        st.warning(f"⚠️ Report 集合（{report_count} 条）中未检索到与审计问题相关的段落，审计结论可能不完整。")
 
     # ─── Step 4: Gemma4 生成结论 ─────────────────────────────
     stat.markdown(

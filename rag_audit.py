@@ -185,11 +185,20 @@ def retrieve_relevant_chunks(
     collection,
     top_k: int = TOP_K,
 ) -> list[dict]:
-    """余弦相似度检索，返回 top_k 块。"""
+    """余弦相似度检索，返回 top_k 块。含空集合防御逻辑。"""
+    # ── 防御：集合为空时直接返回空列表，避免 ChromaDB n_results=0 报错 ──
+    count = collection.count()
+    if count == 0:
+        print(f"[WARNING] 集合 '{collection.name}' 为空，跳过检索。")
+        return []
+
+    # n_results 必须在 [1, count] 范围内
+    n_results = max(1, min(top_k, count))
+
     query_vec = ollama_embed(query)
     results   = collection.query(
         query_embeddings=[query_vec],
-        n_results=min(top_k, collection.count()),
+        n_results=n_results,
         include=["documents", "metadatas", "distances"],
     )
     out = []
